@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HNGBNC
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  learning makes me happy!
 // @author       CC
 // @match        https://www.hngbwlxy.gov.cn/*
