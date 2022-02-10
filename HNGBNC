@@ -1,0 +1,156 @@
+// ==UserScript==
+// @name         HNGBNC
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  learning makes me happy!
+// @author       CC
+// @match        https://www.hngbwlxy.gov.cn/*
+// @match        https://hngbwlxy.gov.cn/*
+// @require      https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.5.1.min.js
+// @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+// @grant        GM_xmlhttpRequest
+// ==/UserScript==
+//var cpect = document.getElementsByClassName('pull-left ng-binding')[0].innerHTML;
+
+var Timer= 60000;//Define a timer
+const DETAIL = "csDetail";//page of course detail
+const CENTER = "csCenter";//page of user center
+const CSPLAY = "csPlay";//page of playing
+
+//To debugging
+function WLOG(LogText){
+    console.log("====DEBUG："+LogText);
+}
+
+//To make a tip
+function createTip() {
+    let tipInfo = document.createElement("div");
+    //添加样式
+    tipInfo.setAttribute("id", "studyTip");
+    tipInfo.innerText = "正在初始化....";
+    tipInfo.style.position = "fixed";
+    tipInfo.style.bottom = "15px";
+    tipInfo.style.left = "5px";
+    tipInfo.style.padding = "12px 14px";
+    tipInfo.style.border = "none";
+    tipInfo.style.borderRadius = "10px";
+    tipInfo.style.backgroundColor = "#222222";
+    tipInfo.style.color = "#ffffff";
+    tipInfo.style.fontSize = "14px";
+    tipInfo.style.fontWeight = "bold";
+    //插入节点
+    let body = document.getElementsByTagName("body")[0];
+    body.append(tipInfo)
+}
+
+//用于获取课程id-返回id
+function GetCSId(){
+    let csId = $(".ng-binding").eq(15).attr("href").split("?")[1].split("=")[1];
+    return csId;
+}
+
+//判断获取当前页面标题-返回标题
+function GetTitle(){
+    let strTitle = $("title").text();
+    if(strTitle == '课程详情'){
+        //WLOG(strTitle);
+        return DETAIL;
+    }
+    else if(strTitle == "个人中心"){
+        return CENTER;
+    }
+    else if(strTitle == "课程播放"){
+        return CSPLAY;
+    }
+}
+
+//用于异步获取课程进度
+function GetPcnt(){
+    let Uurl = "https://www.hngbwlxy.gov.cn/api/Page/CourseContent";
+    let Iid = GetCSId();
+    let Ttitle = "课程详情";
+    let Ddata = {Id:Iid,titleNav:Ttitle};
+    let Ppcnt = 0;
+
+    //ajax异步获取方法
+    $.ajax({
+        type: "POST",
+        url: "https://www.hngbwlxy.gov.cn/api/Page/CourseContent",
+        data: Ddata,
+        async: false,//改为同步获取，可取得返回值
+        xhrFields: {
+        withCredentials: true
+        },
+        dataType: "json",
+        /*success: function (temp) {
+            WLOG(JSON.stringify(temp));
+            //resolve(temp.data.taskProgress);
+        },*/
+        success: function(data){
+            //WLOG("获取到的进度："+data.Data.CourseModel.BrowseScore);//打印日志
+            Ppcnt = parseFloat(data.Data.CourseModel.BrowseScore);
+
+        },
+
+        error: function () {
+            WLOG("获取失败");
+            Ppcnt = 0;
+        }
+    });
+    //WLOG("RETURN PCNT:"+Ppcnt);//打印日志
+    return Ppcnt;
+}
+
+//学习提示倒计时
+function TimerCut(){
+    let time = Timer / 1000;
+    let timerCut = setInterval(function(){
+        if(time>=0){
+            $("#studyTip").text("预计  "+time+"  秒后更新进度数据");//更新提示
+        }
+        else {
+            time = Timer / 1000 + 1;
+        }
+        time--;
+    },1000);
+}
+
+$(document).ready(function () {
+    //取消弹窗
+    window.alert = function(){return true};
+
+    let url = window.location.href;
+    let title = GetTitle();
+    //如果不是课程播放页面就创建学习提示
+    if(title != CSPLAY){
+        createTip();//创建学习提示
+        //$("#studyTip").text("已获得当前课程学习进度： "+$(".progress-con.ng-binding")[0].innerHTML);//进度提示
+        TimerCut();
+    }
+    if(title == DETAIL){
+        let ready = setInterval(function (){
+        //只对【课程详情】页面作用
+            let pcnt = GetPcnt();
+            $(".progress-bar.progress-bar-striped")[1].style = "width: "+pcnt+"%;";//更新进度条
+            $(".progress-con.ng-binding")[0].innerHTML = pcnt+"%";//更新进度百分比
+            if(pcnt ==100){
+                WLOG("DONE"+pcnt);
+                top.location='#/personalCenter';
+                clearInterval(ready);//停止定时器
+            }
+        //只对【个人中心】页面作用
+    }, Timer);
+    }
+    if(title == CENTER){
+        let pcnt=parseFloat($(".pull-left.ng-binding")[0].innerHTML);//课程进度变量
+        let courseHerf=$(".p-play.continue_play.mar_top_20.pull-left").eq(0).attr("href");//第一个课程的播放链接
+        WLOG("课程进度:"+pcnt+"课程链接:"+courseHerf);//记录日志
+        if(pcnt<100){
+            WLOG("准备播放课程"+courseHerf);//记录日志
+            top.location=courseHerf;
+        }
+    }
+    /*if(abc="100%"){
+        top.location='#/personalCenter';
+    }*/
+});
