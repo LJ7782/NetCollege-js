@@ -20,7 +20,7 @@ thanks for TechXueXi/techxuexi-js, as a fisher some scripts modified from [TechX
 <br />
 
 ### 目前已知问题:
-~~如果达到当日学习最高分的话，进度能进行更新，页面无法自动关闭。（V2.0.1已修复）
+~~如果达到当日学习最高分的话，进度能进行更新，页面无法自动关闭。（V2.0.1已修复）~~
 
 <br />
 
