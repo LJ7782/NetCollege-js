@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HNGB网络学院2.0
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.0.1
 // @description  学习使我快乐!
 // @author       CC
 // @match        https://www.hngbwlxy.gov.cn/*
@@ -152,11 +152,13 @@ function WaitingClose(newPage) {
                     closeWin();
                 }
             },1000);*/
+            /*
             if (courseNow_Pcnt >=100){
                 clearInterval(doing);//停止定时器
                 closeWin();
                 resolve('done');
-            }
+
+            }*/
             if (newPage.closed) {
                 clearInterval(doing);//停止定时器
                 resolve('done');
@@ -236,7 +238,6 @@ function GetPcnt(csId){
         Iid = csId;
     }
     let Ttitle = "课程详情";
-    let Ppcnt = 0;
     let Ddata = {Id:Iid,titleNav:Ttitle};
 
     //ajax异步获取方法
@@ -255,17 +256,17 @@ function GetPcnt(csId){
         },*/
         success: function(data){
             //WLOG("获取到的进度："+data.Data.CourseModel.BrowseScore);//打印日志
-            Ppcnt = parseFloat(data.Data.CourseModel.BrowseScore);
+            courseNow_Pcnt = parseFloat(data.Data.CourseModel.BrowseScore);
 
         },
 
         error: function () {
             WLOG("获取失败");
-            Ppcnt = 0;
+            courseNow_Pcnt = 0;
         }
     });
     //WLOG("RETURN PCNT:"+Ppcnt);//打印日志
-    return Ppcnt;
+    return courseNow_Pcnt;
 }
 
 //学习提示倒计时
@@ -282,6 +283,7 @@ function TimerCut(){
                 TimerQuery = Timer / 1000;//查询计时器复位
             }
             if (courseNow_Pcnt >= 100){
+                closeWin();
                 clearInterval(reflashInterval);
             }
         },1000);
@@ -340,7 +342,7 @@ async function StartWatch(){
         let newPage = GM_openInTab(url+courseNow.Id,{active:true, insert: true, setParent: true })
         WLOG("正在学习当前视频：["+courseNow.Id+"]"+courseNow.Name)
         await WaitingClose(newPage);
-        if (courseNow_Pcnt < 100){//窗口虽然关闭，但是课程未达到100%
+        if (GetPcnt() < 100){//窗口虽然关闭，但是课程未达到100%
             WLOG("课程["+courseNow.Id+"]进度["+courseNow_Pcnt+"]未完成，将继续尝试播放");
             i--;
         }
