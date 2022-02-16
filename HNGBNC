@@ -1,28 +1,40 @@
 // ==UserScript==
-// @name         HNGBNC
+// @name         HNGB网络学院2.0
 // @namespace    http://tampermonkey.net/
-// @version      1.1
-// @description  learning makes me happy!
+// @version      2.0
+// @description  学习使我快乐!
 // @author       CC
 // @match        https://www.hngbwlxy.gov.cn/*
 // @match        https://hngbwlxy.gov.cn/*
 // @require      https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.5.1.min.js
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_deleteValue
+// @grant        GM_openInTab
 // ==/UserScript==
 //var cpect = document.getElementsByClassName('pull-left ng-binding')[0].innerHTML;
+var study_css = ".egg_study_btn{outline:0;border:0;position:fixed;top:5px;left:5px;padding:12px 20px;border-radius:10px;cursor:pointer;background-color:#fff;color:#d90609;font-size:18px;font-weight:bold;text-align:center;box-shadow:0 0 9px #666777}.egg_manual_btn{transition:0.5s;outline:none;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;background-color:#e3484b;color:rgb(255,255,255);font-size:18px;font-weight:bold;text-align:center;}.egg_auto_btn{transition:0.5s;outline:none;border:none;padding:12px 20px;border-radius:10px;cursor:pointer;background-color:#666777;color:rgb(255,255,255);font-size:18px;font-weight:bold;text-align:center;}.egg_setting_box{position:fixed;top:70px;left:5px;padding:12px 20px;border-radius:10px;background-color:#fff;box-shadow:0 0 9px #666777}.egg_setting_item{margin-top:5px;height:30px;width:140px;font-size:16px;display:flex;justify-items:center;justify-content:space-between}input[type='checkbox'].egg_setting_switch{cursor:pointer;margin:0;outline:0;appearance:none;-webkit-appearance:none;-moz-appearance:none;position:relative;width:40px;height:22px;background:#ccc;border-radius:50px;transition:border-color .3s,background-color .3s}input[type='checkbox'].egg_setting_switch::after{content:'';display:inline-block;width:1rem;height:1rem;border-radius:50%;background:#fff;box-shadow:0,0,2px,#999;transition:.4s;top:3px;position:absolute;left:3px}input[type='checkbox'].egg_setting_switch:checked{background:#fd5052}input[type='checkbox'].egg_setting_switch:checked::after{content:'';position:absolute;left:55%;top:3px}";
+GM_addStyle(study_css);
 
-var Timer= 60000;//Define a timer
-const DETAIL = "csDetail";//page of course detail
-const CENTER = "csCenter";//page of user center
-const CSPLAY = "csPlay";//page of playing
+var Timer = 60000;//定义查询间隔定时器时长
+var TimerQuery = Timer / 1000 + 1;//倒计时计时器时长
+var csTable = [];//已选课程里内容列表
+var csTableCount = 0;//已选课程列表数量
+var courseNow = "";//当前播放课程
+var courseNow_Pcnt = "";//当前课程最新进度
+const DETAIL = "csDetail";//课程详情
+const CENTER = "csCenter";//个人中心
+const CSPLAY = "csPlay";//课程播放
 
-//To debugging
+//用于调试LOG输出
 function WLOG(LogText){
-    console.log("====DEBUG："+LogText);
+    console.log("调试LOG输出："+LogText);
 }
 
-//To make a tip
+//用于创建学习提示
 function createTip() {
     let tipInfo = document.createElement("div");
     //添加样式
@@ -43,11 +55,161 @@ function createTip() {
     body.append(tipInfo)
 }
 
+//查询今日完成情况,获取未完成列表第一个课程的id尝试获得播放页的状态
+function GetToday(){
+    let csUnfinish = GetCourseTable();
+    let csUnfinishId = csUnfinish[0].Id;
+    let url = "https://www.hngbwlxy.gov.cn/api/Home/Play"
+    return new Promise(function (resolve) {
+        $.ajax({
+            type: "POST",
+            url: url,
+            xhrFields: {
+                withCredentials: true //如果没有这个请求失败
+            },
+            data: {id:csUnfinishId},
+            dataType: "json",
+            success: function (temp) {
+                if(temp.Data == null){
+                    //WLOG("#####DONE");
+                    resolve("DONE");//已完成
+                }else{
+                    //WLOG("#####UN");
+                    resolve("UN");//未完成
+                }
+            },
+            error: function () {
+                //WLOG("#####ERROR");
+                resolve("ERROR");//出错
+            }
+        });
+    })
+}
+
+//查询是否登录
+function IsOnline(){
+    let url = "https://www.hngbwlxy.gov.cn/api/Info/GetUserInfo"
+    return new Promise(function (resolve) {
+        $.ajax({
+            type: "POST",
+            url: url,
+            xhrFields: {
+                withCredentials: true //如果没有这个请求失败
+            },
+            dataType: "json",
+            success: function (temp) {
+                resolve(temp.Data.IsOnline);
+            },
+            error: function () {
+                resolve(new Array());
+            }
+        });
+    })
+    return true;
+}
+
+//默认情况下, chrome 只允许 window.close 关闭 window.open 打开的窗口,所以我们就要用window.open命令,在原地网页打开自身窗口再关上,就可以成功关闭了
+function closeWin() {
+    try {
+         window.opener = window;
+         var win = window.open("","_self");
+         win.close();
+         top.close();
+    } catch (e) {
+        }
+
+}
+
+//JQuery更改播放页面学习提示
+function ModifyTip(newPage,strTips){
+    $.ajax({
+        type:"get",
+        url:newPage, //需要获取的页面内容
+        async:true,
+        success:function(data){
+            console.log(data)
+            $('.contentBox').html(data) //将获取到的内容放到当前页面的.contentBox中
+        }
+    });
+}
+
+//等待窗口关闭
+function WaitingClose(newPage) {
+    return new Promise(resolve => {
+        //WLOG("=====已进入1");
+        //createTip();
+        //courseNow_Pcnt = GetPcnt();//初始查询当前进度
+        let doing = setInterval(function () {
+            /*WLOG("=====已进入2");
+            /let watchInterval = setInterval(function(){
+                TimerQuery--;
+                $("#studyTip").text("当前进度： "+courseNow_Pcnt+"</br>"+TimerQuery + " 秒后开始查询进度");
+                if(TimerQuery == 0){
+                    courseNow_Pcnt = GetPcnt();
+                    TimerQuery = Timer / 1000;//查询计时器复位
+                }
+                if (courseNow_Pcnt >= 100){
+                    closeWin();
+                }
+            },1000);*/
+            if (courseNow_Pcnt >=100){
+                clearInterval(doing);//停止定时器
+                closeWin();
+                resolve('done');
+            }
+            if (newPage.closed) {
+                clearInterval(doing);//停止定时器
+                resolve('done');
+            }
+        }, 1000);
+    });
+}
+
+//等待时间工具函数
+function WaitingTime(time) {
+    if (!Number.isInteger(time)) {
+        time = 2000;
+    }
+    return new Promise(resolve => {
+        setTimeout(function () {
+            resolve('done');
+        }, time);
+    });
+}
+
+//创建“开始学习”按钮和配置
+function createStartButton() {
+    let base = document.createElement("div");
+    var baseInfo = "";
+    baseInfo += "<form id=\"settingData\" class=\"egg_menu\" action=\"\" target=\"_blank\" onsubmit=\"return false\"><\/form>";
+    base.innerHTML = baseInfo;
+    let body = document.getElementsByTagName("body")[0];
+    body.append(base)
+    let startButton = document.createElement("button");
+    startButton.setAttribute("id", "startButton");
+    startButton.innerText = "开始学习";
+    startButton.className = "egg_study_btn egg_menu";
+    //添加事件监听
+    try {// Chrome、FireFox、Opera、Safari、IE9.0及其以上版本
+        startButton.addEventListener("click", start, false);
+    } catch (e) {
+        try {// IE8.0及其以下版本
+            startButton.attachEvent('onclick', start);
+        } catch (e) {// 早期浏览器
+            console.log(" 开始学习按钮绑定事件失败")
+        }
+    }
+    //插入节点
+    body.append(startButton)
+}
+
+/*
 //用于获取课程id-返回id
 function GetCSId(){
     let csId = $(".ng-binding").eq(15).attr("href").split("?")[1].split("=")[1];
     return csId;
 }
+*/
 
 //判断获取当前页面标题-返回标题
 function GetTitle(){
@@ -65,12 +227,17 @@ function GetTitle(){
 }
 
 //用于异步获取课程进度
-function GetPcnt(){
+function GetPcnt(csId){
     let Uurl = "https://www.hngbwlxy.gov.cn/api/Page/CourseContent";
-    let Iid = GetCSId();
+    let Iid = "";
+    if (csId == null){
+        Iid = courseNow.Id;
+    }else{
+        Iid = csId;
+    }
     let Ttitle = "课程详情";
-    let Ddata = {Id:Iid,titleNav:Ttitle};
     let Ppcnt = 0;
+    let Ddata = {Id:Iid,titleNav:Ttitle};
 
     //ajax异步获取方法
     $.ajax({
@@ -79,7 +246,7 @@ function GetPcnt(){
         data: Ddata,
         async: false,//改为同步获取，可取得返回值
         xhrFields: {
-        withCredentials: true
+            withCredentials: true
         },
         dataType: "json",
         /*success: function (temp) {
@@ -103,54 +270,161 @@ function GetPcnt(){
 
 //学习提示倒计时
 function TimerCut(){
-    let time = Timer / 1000;
-    let timerCut = setInterval(function(){
-        if(time>=0){
-            $("#studyTip").text("预计  "+time+"  秒后更新进度数据");//更新提示
-        }
-        else {
-            time = Timer / 1000 + 1;
-        }
-        time--;
-    },1000);
+    let url = window.location.href;
+    let csId = url.split("=")[1];
+    WLOG("获取id"+csId);
+    courseNow_Pcnt = GetPcnt(csId);//初始查询当前进度
+        let reflashInterval = setInterval(function(){
+            TimerQuery--;
+            $("#studyTip").text("当前进度：["+courseNow_Pcnt+"%] 约"+TimerQuery + " 秒后开始查询进度");
+            if(TimerQuery <= 0){
+                courseNow_Pcnt = GetPcnt(csId);
+                TimerQuery = Timer / 1000;//查询计时器复位
+            }
+            if (courseNow_Pcnt >= 100){
+                clearInterval(reflashInterval);
+            }
+        },1000);
+    ////////
 }
 
-$(document).ready(function () {
-    //取消弹窗
-    window.alert = function(){return true};
+//用于获取已选课列表csType为“Finish“已完成、”Unfinish“未完成
+function GetCourseTable(csType){
+    if(csType == null){//防止空值
+        csType = "Unfinish";//默认未完成
+    }
+    //ajax异步获取方法
+    $.ajax({
+        type: "POST",
+        url: "https://www.hngbwlxy.gov.cn/api/Page/MyCenter",
+        data: {
+            "page": 1,
+            "rows": 10,
+            "sort": "BrowseScore",
+            "order": "desc",
+            "titleNav": "个人中心",
+            "courseType": csType,
+        },
+        async: false,//改为同步获取，可取得返回值
+        xhrFields: {
+            withCredentials: true
+        },
+        dataType: "json",
+        success: function(data){
+            WLOG("已经获取到课程列表条目："+data.Data.Count);//打印日志
+            if(csType == "Unfinish"){
+                csTable = data.Data.ListData.UnfinishModel;
+            }else if(csType == "Finish"){
+                csTable = data.Data.ListData.FinishModel;
+            }
+            csTableCount = data.Data.Count;
+        },
 
+        error: function () {
+            WLOG("获取失败");
+            csTable = null;
+        }
+    });
+    return csTable;
+}
+
+//观看视频学习
+async function StartWatch(){
+    WLOG("开始观看视频学习");
+    let url = "https://www.hngbwlxy.gov.cn/#/play/play?Id=";
+    //await GetCourseTable();
+    for(let i = 0; i < csTableCount; i++){
+        courseNow = csTable[i];
+        courseNow_Pcnt = courseNow.BrowseScore;
+        WLOG("URL:"+url+courseNow.Id);
+        let newPage = GM_openInTab(url+courseNow.Id,{active:true, insert: true, setParent: true })
+        WLOG("正在学习当前视频：["+courseNow.Id+"]"+courseNow.Name)
+        await WaitingClose(newPage);
+        if (courseNow_Pcnt < 100){//窗口虽然关闭，但是课程未达到100%
+            WLOG("课程["+courseNow.Id+"]进度["+courseNow_Pcnt+"]未完成，将继续尝试播放");
+            i--;
+        }
+        await WaitingTime(12000);
+    }
+}
+
+//开始
+async function start() {
+    WLOG("开始初始化...");
+    //检查是否登录代码
+    let isOnline = IsOnline();
+    if (isOnline){
+        WLOG("已检测登录");
+        let startButton = document.getElementById("startButton");
+        startButton.innerText = "正在学习";
+        startButton.style.cursor = "default";
+        startButton.setAttribute("disabled", true);
+        let taskProgress = null;
+        let continueToDo = true;
+        while (continueToDo) {
+            //查询今天还有什么任务没做完
+            console.log("检查今天还有多少分任务可以学习")
+            let statusToday = await GetToday();
+            if (statusToday == "UN") {
+                console.log("开始学习")
+                //检查【个人中心】是否有已经选课的列表
+                if (GetCourseTable() != null){
+                    WLOG("检测到已选课表，开始学习");
+                    let result = await StartWatch();
+                    if(result == "done"){
+                        //如果学完了，已经没有课表了
+                        continueToDo = false;
+                        WLOG("已完成今日学习");
+                    }
+                }else{
+                    WLOG("已选课表为空，请选课");
+                }
+            }else if (statusToday == "DONE") {
+                WLOG("学员您好，您今天已累计学习5学时了，请注意身体劳逸结合，明天再继续学习吧。");
+                continueToDo = false;
+            }else {
+                WLOG("发生意外错误");
+                continueToDo = false;
+            }
+            WLOG("continueToDo:" + continueToDo);
+        }
+        WLOG("已完成");
+        startButton.innerText = "已完成";
+        startButton.style.color = "#c7c7c7";
+    }else{
+        //提醒登录
+        WLOG("请登录");
+    }
+}
+
+//入口
+$(document).ready(function () {
+    //window.alert = function(){return true};//取消弹窗
     let url = window.location.href;
     let title = GetTitle();
-    //如果不是课程播放页面就创建学习提示
-    if(title != CSPLAY){
-        createTip();//创建学习提示
-        //$("#studyTip").text("已获得当前课程学习进度： "+$(".progress-con.ng-binding")[0].innerHTML);//进度提示
-        TimerCut();
+    //如果是【个人中心】就创建学习按钮
+    if (title == CENTER){
+        let ready = setInterval(function () {
+            if ($(".p-name.ng-binding")[0]) {
+                clearInterval(ready);//停止定时器
+                //创建"开始学习"按钮
+                createStartButton();
+            }
+        }, 800);
     }
-    if(title == DETAIL){
-        let ready = setInterval(function (){
-        //只对【课程详情】页面作用
-            let pcnt = GetPcnt();
-            $(".progress-bar.progress-bar-striped")[1].style = "width: "+pcnt+"%;";//更新进度条
-            $(".progress-con.ng-binding")[0].innerHTML = pcnt+"%";//更新进度百分比
-            if(pcnt ==100){
-                WLOG("DONE"+pcnt);
-                top.location='#/personalCenter';
+    if (title == CSPLAY){
+        WLOG("等待通过滑块验证码...");
+        var divPLAYBG = $("#playBg").eq(0);//查找playBg的Div标签，确定是否已过验证码
+        let ready = setInterval(function(){
+            if (divPLAYBG.attr("style")){
+                WLOG("滑块验证码通过");
+                createTip();
+                TimerCut();
                 clearInterval(ready);//停止定时器
             }
-        //只对【个人中心】页面作用
-    }, Timer);
-    }
-    if(title == CENTER){
-        let pcnt=parseFloat($(".pull-left.ng-binding")[0].innerHTML);//课程进度变量
-        let courseHerf=$(".p-play.continue_play.mar_top_20.pull-left").eq(0).attr("href");//第一个课程的播放链接
-        WLOG("课程进度:"+pcnt+"课程链接:"+courseHerf);//记录日志
-        if(pcnt<100){
-            WLOG("准备播放课程"+courseHerf);//记录日志
-            top.location=courseHerf;
+            else{
+                //WLOG("===NOP====");
+            }
+        },2000)
         }
-    }
-    /*if(abc="100%"){
-        top.location='#/personalCenter';
-    }*/
-});
+})
