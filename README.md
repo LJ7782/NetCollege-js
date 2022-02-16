@@ -3,7 +3,7 @@ scripts for a network college to help users to learn easily
 
 thanks for TechXueXi/techxuexi-js, as a fisher some scripts modified from [TechXueXi/techxuexi-js](https://github.com/TechXueXi/techxuexi-js)
 
-# 最新版本V2.0
+# 最新版本V2.0.1
 
 ### HN干部网络学院学习辅助脚本，通过该脚本可以实现以下功能：
 
@@ -20,7 +20,7 @@ thanks for TechXueXi/techxuexi-js, as a fisher some scripts modified from [TechX
 <br />
 
 ### 目前已知问题:
-如果达到当日学习最高分的话，进度能进行更新，页面无法自动关闭。（正在解决）
+~~如果达到当日学习最高分的话，进度能进行更新，页面无法自动关闭。（V2.0.1已修复）
 
 <br />
 
