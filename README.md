@@ -20,7 +20,8 @@ thanks for TechXueXi/techxuexi-js, as a fisher some scripts modified from [TechX
 <br />
 
 ### 目前已知问题:
-~~如果达到当日学习最高分的话，进度能进行更新，页面无法自动关闭。（V2.0.1已修复）~~
+1. 如果达到当日学习最高分，且当前播放视频进度未到100%，视频页面不自动关闭的判断。（正在解决）
+~~2. 页面无法自动关闭。（V2.0.1已修复）~~
 
 <br />
 
