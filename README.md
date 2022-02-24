@@ -3,7 +3,7 @@ scripts for a network college to help users to learn easily
 
 thanks for TechXueXi/techxuexi-js, as a fisher some scripts modified from [TechXueXi/techxuexi-js](https://github.com/TechXueXi/techxuexi-js)
 
-# 最新版本V2.0.1
+# 最新版本V2.0.2
 
 ### HN干部网络学院学习辅助脚本，通过该脚本可以实现以下功能：
 
@@ -23,6 +23,7 @@ thanks for TechXueXi/techxuexi-js, as a fisher some scripts modified from [TechX
 1. 如果达到当日学习最高分，且当前播放视频进度未到100%，视频页面不自动关闭的判断。（正在解决）
 2. ~~课程播放完后，学习提示进度不为100%、页面不自动关闭的bug。~~（V2.0.1已修复）
 3. ~~控制台进度得不到及时的返回更新，造成实际100%已学完，控制台仍提示未完成继续学习，进而死循环。~~（V2.0.1已修复）
+4. ~~在课程播放界面，网络原因造成弹窗提示禁止拖动，进而影响课程进度。~~（V2.0.2已修复）
 
 <br />
 
