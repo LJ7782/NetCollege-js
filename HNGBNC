@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HNGB网络学院2.0
 // @namespace    http://tampermonkey.net/
-// @version      2.0.1
+// @version      2.0.2
 // @description  学习使我快乐!
 // @author       CC
 // @match        https://www.hngbwlxy.gov.cn/*
@@ -278,6 +278,9 @@ function TimerCut(){
         let reflashInterval = setInterval(function(){
             TimerQuery--;
             $("#studyTip").text("当前进度：["+courseNow_Pcnt+"%] 约"+TimerQuery + " 秒后开始查询进度");
+            if($(".msConfirm").length > 0){
+                    $(".msConfirm")[0].click();
+                }
             if(TimerQuery <= 0){
                 courseNow_Pcnt = GetPcnt(csId);
                 TimerQuery = Timer / 1000;//查询计时器复位
